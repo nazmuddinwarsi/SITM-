@@ -1,0 +1,185 @@
+﻿using System;
+using System.Collections;
+using System.Configuration;
+using System.Data;
+using System.Linq;
+using System.Web;
+using System.Net;
+using System.Web.Security;
+using System.Web.UI;
+using System.Web.UI.HtmlControls;
+using System.Web.UI.WebControls;
+using System.Web.UI.WebControls.WebParts;
+using System.Data.SqlClient;
+using System.IO;
+
+public partial class test : System.Web.UI.Page
+{
+   SqlCommand cmd;
+    SqlDataReader dr;
+    SqlDataAdapter da;
+    //string userid = "";
+    public string course_id = "", branch_id = "", balance = "", sms = "", totalbalance = "", senderId="";
+    SqlConnection con = new SqlConnection(db_connection1.dbcon());
+
+    protected void Page_Load(object sender, EventArgs e)
+    {
+        getsmsbalance();
+        gettotalsmsbalance();
+
+    }
+    public string CallAPI(string Mobile, string Message)
+    {
+        string API_URL;
+        //   API_URL = "http://totaltechnologies.in/app/smsapi/index.php?key=54aa8e5930257&type=text&contacts=" + Mobile + "&senderid=RSVSLF&msg=" + Message;
+        API_URL = (db_connection1.CallAPI()).ToString();
+       
+
+        HttpWebRequest httpreq = ((HttpWebRequest)(WebRequest.Create(API_URL)));
+        try
+        {
+            HttpWebResponse httpres = ((HttpWebResponse)(httpreq.GetResponse()));
+            StreamReader sr = new StreamReader(httpres.GetResponseStream());
+            string results = sr.ReadToEnd();
+            sr.Close();
+            return results;
+        }
+        catch (System.Exception EX)
+        {
+            return "0";
+        }
+    }
+    private void Page_PreInit(object sender, EventArgs e)
+    {
+        if (Session["username"] != null && Session["username"] != "")
+        {
+            
+        }
+        else
+        {
+            Response.Redirect("/Default.aspx");
+        }
+    }
+    private void deductsms()
+    {
+        try
+        {
+            getsmsbalance();
+            int a = Convert.ToInt32(balance) + 1;
+            if (con.State == ConnectionState.Closed)
+            {
+                con.Open();
+            }
+            string insert_query = "update SITM_sms set sent='" + a + "' where branch_id='" + Session["username"].ToString() + "'";
+            SqlCommand cmd = new SqlCommand(insert_query, con);
+            if (con.State == ConnectionState.Closed)
+            {
+                con.Open();
+            }
+            cmd.ExecuteNonQuery();
+
+        }
+        catch (Exception ex)
+        {
+
+
+        }
+        finally
+        {
+
+
+        }
+    }
+  
+    public void getsmsbalance()
+    {
+        try
+        {
+            string query = "SELECT sent, senderId from SITM_sms where branch_id='" + Session["username"].ToString() + "' GROUP BY sent,senderId";
+            cmd = new SqlCommand(query, con);
+
+            if (con.State == ConnectionState.Closed)
+            {
+                con.Open();
+            }
+            dr = cmd.ExecuteReader();
+            while (dr.Read())
+            {
+
+
+                balance = dr[0].ToString();
+                senderId = dr[1].ToString();
+                
+
+            }
+
+
+        }
+        catch (Exception ex)
+        {
+
+        }
+        finally
+        {
+            cmd.Dispose();
+            dr.Close();
+            dr.Dispose();
+
+
+        }
+    }
+    public void gettotalsmsbalance()
+    {
+        try
+        {
+            string query = "SELECT SUM(sms) - sent AS balance, branch_id from SITM_sms where branch_id='" + branch_id + "' GROUP BY branch_id, sent";
+            cmd = new SqlCommand(query, con);
+
+            if (con.State == ConnectionState.Closed)
+            {
+                con.Open();
+            }
+            dr = cmd.ExecuteReader();
+            while (dr.Read())
+            {
+
+
+                totalbalance = dr[0].ToString();
+
+
+            }
+
+
+        }
+        catch (Exception ex)
+        {
+
+        }
+        finally
+        {
+            cmd.Dispose();
+            dr.Close();
+            dr.Dispose();
+
+
+        }
+    }
+    protected void Button1_Click(object sender, EventArgs e)
+    {
+        if (totalbalance != "0")
+        {
+
+            db_connection1 db = new db_connection1();
+            db.CallAPI(mobile1.Text, txtsms.Text, senderId);
+            deductsms();
+            Response.Write("<script>alert('You have  been sent SMS successfully');</script>");
+            mobile1.Text = "";
+            txtsms.Text = "";
+           
+        }
+        else
+        {
+            Response.Write("<script>alert('You have No SMS Balance');</script>");
+        }
+    }
+}
